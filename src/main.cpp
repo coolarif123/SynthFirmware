@@ -46,6 +46,7 @@ HardwareTimer sampleTimer(TIM1);
 //global struct that stores systen state that is used in more than one thread
 struct {
   std::bitset<32> inputs;
+  SemaphoreHandle_t mutex;
 } sysState;
   
 //Display driver object
@@ -84,6 +85,7 @@ std::bitset<4> readCols(){
 
     while (1) {
       vTaskDelayUntil( &xLastWakeTime, xFrequency );
+      xSemaphoreTake(sysState.mutex, portMAX_DELAY);
       
       for (uint8_t rowIdx = 0; rowIdx < 7; rowIdx++) {
         setRow(rowIdx);
@@ -103,7 +105,7 @@ std::bitset<4> readCols(){
           localCurrentStepSize = stepSizes[12];
         }
       }
-
+      xSemaphoreGive(sysState.mutex);
       __atomic_store_n(&currentStepSize, localCurrentStepSize, __ATOMIC_RELAXED);
     }
   }
@@ -202,6 +204,8 @@ void setup() {
   NULL,			/* Parameter passed into the task */
   1,			/* Task priority */
   &displayUpdateHandle);	/* Pointer to store the task handle */
+
+  sysState.mutex = xSemaphoreCreateMutex();
 
   vTaskStartScheduler();
 }
