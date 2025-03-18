@@ -1,17 +1,27 @@
 # ES-synth-starter
 
-  Use this project as the starting point for your Embedded Systems labs and coursework.
   
-  [Lab Part 1](doc/LabPart1.md)
-  
-  [Lab Part 2](doc/LabPart2.md)
+|Arif|  |
+|Sandro|--|
+| Sophie  | sj922 |
 
-## Additional Information
+##Theoretical Minimum Initiation Interval (II) and Execution Time Measurement
 
-  [Handshaking and auto-detection](doc/handshaking.md)
-  
-  [Double buffering of audio samples](doc/doubleBuffer.md)
-
-  [StackSynth V1.1 Schematic](doc/StackSynth-v1.pdf)
-
-  [StackSynth V2.1 Schematic](doc/StackSynth-v2.pdf)
+## **1. Assumptions**
+- **Clock Speed**: 72 MHz (typical for STM32F103)
+ **Tasks & Interrupts**: The execution time depends on:
+  - `scanKeysTask()`
+  - `displayUpdateTask()`
+  - `setISR()` (Interrupt Service Routine)
+  - `decodeTask()`
+  - `CAN_RX_ISR()`
+- **Key bottleneck**: `setISR()` runs at the highest priority and executes for every audio sample.
+## **2. Theoretical Minimum Initiation Interval**
+The minamum II is dictated by the task with the fastest periodic time
+| Task Name           | Periodicity (ms) |
+|---------------------|----------------|
+| `scanKeysTask`      | 20             |
+| `displayUpdateTask` | 100            |
+| `setISR` (ISR)      | 0.04545 |
+| `decodeTask` (CAN)  | Event-driven |
+- Since `setISR()` is the **fastest executing routine**, the **theoretical minimum II** is **0.04545 μs**
