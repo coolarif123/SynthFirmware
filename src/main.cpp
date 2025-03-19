@@ -336,16 +336,20 @@ void displayUpdateTask(void * pvParameters) {
     uint8_t local_octave = __atomic_load_n(&octave, __ATOMIC_ACQUIRE);
     uint8_t local_waveform = __atomic_load_n(&waveform, __ATOMIC_ACQUIRE);
     
-    int key_count{0};
-    for(int i=0; i<key_size; i++) { //display keys played
-      if(currentStepSize[i] == 1) {
-        u8g2.drawStr(2 + 15*i, 10, notes[i%12].c_str());
-        key_count++;
+    int x_offset = 40; // Starting x position for notes
+    int y_offset = 10; // Y position for notes
+    u8g2.setCursor(2, 10);
+    u8g2.print("Keys: "); // Add the "Keys: " label
+
+    for (int i = 0; i < key_size; i++) {
+      if (currentStepSize[i] != 0) { // Check if the key is pressed
+        u8g2.drawStr(x_offset, y_offset, notes[i % 12].c_str()); // Display the note
+        x_offset += 15; // Move to the next position for the next note
       }
     }
 
     // Display Volume
-    u8g2.setCursor(15, 20);
+    u8g2.setCursor(70, 20);
     u8g2.print("Vol: ");
     u8g2.print(local_volume);
 
