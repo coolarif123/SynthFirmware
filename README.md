@@ -67,6 +67,10 @@ In order to send relliable communication between one singular sender and multipl
 
 ### **Advance Functions**
 
+#### 1. Sine Wave
+
+We also decided to offer the user the option to change the waveform from the  described sawtooth to a sin wave. The sin w ave is also implemented by a look up table.
+
 ## Critical instant Analysis of the Monotonic Scheduler
 
 ## Dependancies, and Shared Structures and  Methods
