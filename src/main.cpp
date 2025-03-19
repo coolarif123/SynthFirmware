@@ -7,6 +7,7 @@
 
 #include "Knob.h"
 
+
 //Constants
   const uint32_t interval = 100; //Display update interval
 
@@ -334,10 +335,18 @@ void displayUpdateTask(void * pvParameters) {
     uint8_t local_volume = __atomic_load_n(&volume, __ATOMIC_ACQUIRE);
     uint8_t local_octave = __atomic_load_n(&octave, __ATOMIC_ACQUIRE);
     uint8_t local_waveform = __atomic_load_n(&waveform, __ATOMIC_ACQUIRE);
+    
+    int key_count{0};
+    for(int i=0; i<key_size; i++) { //display keys played
+      if(currentStepSize[i] == 1) {
+        u8g2.drawStr(2 + 15*i, 10, notes[i%12].c_str());
+        key_count++;
+      }
+    }
 
     // Display Volume
-    u8g2.setCursor(2, 10);
-    u8g2.print("Volume: ");
+    u8g2.setCursor(15, 20);
+    u8g2.print("Vol: ");
     u8g2.print(local_volume);
 
     // Display Octave
@@ -373,6 +382,7 @@ void displayUpdateTask(void * pvParameters) {
     // u8g2.print(sysState.inputs.to_ulong(), HEX);
     // xSemaphoreGive(sysState.mutex);
 
+    // // For testing
     // // Display RX Message (if applicable)
     // u8g2.setCursor(2, 50);
     // u8g2.print("RX: ");
@@ -597,7 +607,7 @@ void setup() {
   "scanKeys",		/* Text name for the task */
   256,      		/* Stack size in words, not bytes */
   NULL,			/* Parameter passed into the task */
-  1,			/* Task priority */
+  4,			/* Task priority */
   &scanKeysHandle);	/* Pointer to store the task handle */
 
   TaskHandle_t displayUpdateHandle = NULL;
@@ -606,7 +616,7 @@ void setup() {
   "displayUpdate",		/* Text name for the task */
   256,      		/* Stack size in words, not bytes */
   NULL,			/* Parameter passed into the task */
-  1,			/* Task priority */
+  3,			/* Task priority */
   &displayUpdateHandle);	/* Pointer to store the task handle */
 
   TaskHandle_t decodeHandle = NULL;
@@ -624,7 +634,7 @@ void setup() {
   "CAN_TX",		/* Text name for the task */
   256,      		/* Stack size in words, not bytes */
   NULL,			/* Parameter passed into the task */
-  1,			/* Task priority */
+  2,			/* Task priority */
   &CAN_TX_Handle);	/* Pointer to store the task handle */
 
   vTaskStartScheduler();

@@ -1,4 +1,4 @@
-# ES-synth-starter
+# Embedded Systems Coursework 2 - Synthesizer Firmware 
 
   Use this project as the starting point for your Embedded Systems labs and coursework.
   
@@ -6,12 +6,10 @@
   
   [Lab Part 2](doc/LabPart2.md)
 
-## Additional Information
+## Report
+  [1. Core functionality and Additional Features](report/functionality.md)
 
-  [Handshaking and auto-detection](doc/handshaking.md)
+  [2. Real-Time Programming](report/real_time_programming.md)
+
   
-  [Double buffering of audio samples](doc/doubleBuffer.md)
 
-  [StackSynth V1.1 Schematic](doc/StackSynth-v1.pdf)
-
-  [StackSynth V2.1 Schematic](doc/StackSynth-v2.pdf)
