@@ -1,10 +1,5 @@
 # ES-synth-starter
-
-  
-|Arif |  |
-|Sandro | |
-| Sophie  | sj922 |
-
+Sandro,Sophie and Arif
 ## Theoretical Minimum Initiation Interval (II) and Execution Time Measurement
 
 ### **1. Assumptions**
@@ -28,3 +23,19 @@ The minamum II is dictated by the task with the fastest periodic time
 Since `setISR()` is the **fastest executing routine**, the **theoretical minimum II** is **0.04545 μs**
 ## **3. Execution Time Measurement**
 To measure execution time, we used the `micros()` function.
+| Task Name           | Time (ms) |
+|---------------------|----------------|
+| `scanKeysTask`      |         |
+| `displayUpdateTask` |       |
+| `setISR` (ISR)      |  |
+| `decodeTask` (CAN)  |  |
+
+## Tasks and thier implementation
+!!!!!!!!!!mention for addvnace tasks what they r a\and wee explanation!!!!!!
+
+## Critical instant Analysis of the Monotonic Scheduler
+
+
+## Dependancies, and Shared Structures and  Methods
+
+## CPU Utilization
