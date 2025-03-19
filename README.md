@@ -71,12 +71,14 @@ In order to send relliable communication between one singular sender and multipl
 
 ## Dependancies, and Shared Structures and  Methods
 
-| **Data Structure**  | **Usage** | **Potential Conflict** | **Synchronization Method** | **Deadlock Risks & Solutions** |
-|---------------------|----------|------------------------|---------------------------|--------------------------------|
-| **GPIO Key States** | Stores current keyboard key states ehich is read in `scanKeysTask()` | Multiple tasks may want to read and/or write simultaneously | Use **Mutex** to protect the access | **Deadlock Risk**: If a high-priority task holds onto the mutex too long → **Solution**: Keep critical sections short |
-| **Clock Configuration (`RCC_OscInitTypeDef`, `RCC_ClkInitTypeDef`)** | Configures the system's clocks at startup | If it is reconfigured during runtime the system will become unstable | Avoid modifying the clocks dynamically | **Deadlock Risk**: If a task waits for the clock to reconfigur while another task holds a lock → **Solution**: Ensure clocks are configured at boot and remain static |
-| **USB Clock Settings (`PeriphClkInit`)** | Configures the  peripheral USB clock | If modified dynamically, the USB may lose synchronization | Use **semaphores** for synchronization | **Deadlock Risk**: USB task may block others who are waiting for clock access → **Solution**: Assign a higher priority to the USB clock task |
-| **Tick Timing (`portTICK_PERIOD_MS`)** | Controls task execution frequency | Tasks may not recieve data/run if execution timing is not managed properly | Ensure **timeouts** on blocking calls | **Deadlock Risk**: A task may block others indefinitely while waiting for a resource → **Solution**: Use **timeout-based semaphores** (`xSemaphoreTake()` with timeout) |
+| **Data Structure / Mechanism**                 | **Usage** | **Potential Conflict** | **Synchronization Method** | **Deadlock Risks & Solutions** |
+|------------------------------------------------|-----------|------------------------|----------------------------|--------------------------------|
+| **GPIO Key States**                            | Stores current keyboard key states read in `scanKeysTask()` | Multiple tasks may read and/or write concurrently | **Mutex** protects access | **Deadlock Risk**: High-priority tasks holding the mutex too long. **Solution**: Keep critical sections short. |
+| **Clock Configuration (`RCC_OscInitTypeDef`, `RCC_ClkInitTypeDef`)** | Configures system clocks at startup | Reconfiguring clocks at runtime may destabilize the system | Configure at boot; avoid dynamic changes | **Deadlock Risk**: Tasks waiting on clock reconfiguration locks. **Solution**: Set clocks once and keep them static. |
+| **USB Clock Settings (`PeriphClkInit`)**       | Configures the USB peripheral clock | Dynamic modifications can lead to loss of synchronization | **Semaphores** for coordination | **Deadlock Risk**: Blocking by USB tasks. **Solution**: Assign higher priority to USB clock management tasks. |
+| **Tick Timing (`portTICK_PERIOD_MS`)**         | Controls task execution frequency | Incorrect timing may prevent tasks from receiving data or executing properly | Use **timeouts** on blocking calls | **Deadlock Risk**: Indefinite blocking waiting for resources. **Solution**: Use timeout-based semaphores (e.g., `xSemaphoreTake()` with timeout). |
+| **Atomic Operations on Shared Variables** (e.g., `volume`, `octave`, `waveform`, `currentStepSize`) | Ensures that shared variables are read/written consistently between tasks and ISRs | Race conditions if accessed concurrently without protection | **Atomic load/store** functions (`__atomic_load_n`, `__atomic_store_n`) guarantee uninterrupted operations | **Deadlock Risk**: Minimal, but avoid using in long loops or critical ISR sections that could delay other tasks. |
+| **Message Queues (`msgInQ`, `msgOutQ`)**         | Facilitate inter-task and ISR communication (e.g., CAN messages, key scan events) | Simultaneous access may lead to message corruption or loss | **FreeRTOS Queue API** which is thread-safe; combined with **semaphores** for additional control (e.g., CAN TX Semaphore) | **Deadlock Risk**: Blocking on queue operations might occur. **Solution**: Implement timeout-based queue operations to prevent indefinite waiting. |
 
 ### Stratagies to prevent Deadlocking
 
@@ -84,5 +86,6 @@ In order to send relliable communication between one singular sender and multipl
 - Always lock in the same order to stop circualar weights
 - Useage of Prioroties for mutex
 - USB clock is always static when configured
+- atomic stores to ensure the store operation happens in a single step and guaranteeing that  read or write operations do not occur during the store cycles.
 
 ## CPU Utilization
