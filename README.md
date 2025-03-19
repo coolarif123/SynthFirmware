@@ -71,6 +71,10 @@ In order to send relliable communication between one singular sender and multipl
 
 We also decided to offer the user the option to change the waveform from the  described sawtooth to a sin wave. The sin w ave is also implemented by a look up table.
 
+#### 2. Polyphoney
+
+We implemented polyphoney using a modular design. We used a voice management sysrem that keeps track of which controller's speaker is active and assigns it a note to output. We used a priority-based allocation where the oldest or quietest voice is stolen when all voices are in use.
+
 ## Critical instant Analysis of the Monotonic Scheduler
 
 ## Dependancies, and Shared Structures and  Methods
@@ -93,3 +97,10 @@ We also decided to offer the user the option to change the waveform from the  de
 - atomic stores to ensure the store operation happens in a single step and guaranteeing that  read or write operations do not occur during the store cycles.
 
 ## CPU Utilization
+
+| Task Name           | CPU used (%) |
+|---------------------|----------------|
+| `scanKeysTask`      |         |
+| `displayUpdateTask` |       |
+| `setISR` (ISR)      |  |
+| `decodeTask` (CAN)  |  |
