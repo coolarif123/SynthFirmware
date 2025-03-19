@@ -3,7 +3,6 @@ Sandro,Sophie and Arif
 ## Theoretical Minimum Initiation Interval (II) and Execution Time Measurement
 
 ### **1. Assumptions**
-- **Clock Speed**: 72 MHz (typical for STM32F103)
  **Tasks & Interrupts**: The execution time depends on:
   - `scanKeysTask()`
   - `displayUpdateTask()`
@@ -37,5 +36,12 @@ To measure execution time, we used the `micros()` function.
 
 
 ## Dependancies, and Shared Structures and  Methods
+| **Data Structure**  | **Usage** | **Potential Conflict** | **Synchronization Method** | **Deadlock Risks & Solutions** |
+|---------------------|----------|------------------------|---------------------------|--------------------------------|
+| **GPIO Key States** | Stores current keyboard key states ehich is read in `scanKeysTask()` | Multiple tasks may want to read and/or write simultaneously | Use **Mutex** to protect the access | **Deadlock Risk**: If a high-priority task holds onto the mutex too long → **Solution**: Keep critical sections short |
+| **Clock Configuration (`RCC_OscInitTypeDef`, `RCC_ClkInitTypeDef`)** | Configures the system's clocks at startup | If it is reconfigured during runtime the system will become unstable | Avoid modifying the clocks dynamically | **Deadlock Risk**: If a task waits for the clock to reconfigur while another task holds a lock → **Solution**: Ensure clocks are configured at boot and remain static |
+| **USB Clock Settings (`PeriphClkInit`)** | Configures the  peripheral USB clock | If modified dynamically, the USB may lose synchronization | Use **semaphores** for synchronization | **Deadlock Risk**: USB task may block others who are waiting for clock access → **Solution**: Assign a higher priority to the USB clock task |
+| **Tick Timing (`portTICK_PERIOD_MS`)** | Controls task execution frequency | Tasks may not recieve data/run if execution timing is not managed properly | Ensure **timeouts** on blocking calls | **Deadlock Risk**: A task may block others indefinitely while waiting for a resource → **Solution**: Use **timeout-based semaphores** (`xSemaphoreTake()` with timeout) |
+
 
 ## CPU Utilization
