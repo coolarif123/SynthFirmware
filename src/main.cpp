@@ -5,9 +5,9 @@
 #include <algorithm>
 #include <ES_CAN.h>
 #include "Knob.h"
-#define DISABLE_THREADS  
-#define DISABLE_ISR      
-#define TEST_SCANKEYS
+// #define DISABLE_THREADS  
+// #define DISABLE_ISR      
+// #define TEST_SCANKEYS
 
 
 
