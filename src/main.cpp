@@ -7,12 +7,18 @@
 #include <stdint.h>
 #include <ES_CAN.h>
 #include "Knob.h"
+<<<<<<< HEAD
 //#define DISABLE_THREADS  
 //#define DISABLE_ISR      
 //#define TEST_SCANKEYS
 //#define TEST_DISPLAYUPDATE
 //#define TEST_DECODE
 //#define TEST_CAN_TX
+=======
+// #define DISABLE_THREADS  
+// #define DISABLE_ISR      
+// #define TEST_SCANKEYS
+>>>>>>> 3d4cd86b265c2a79cdd2f3402710996b910b96ca
 
 
 
@@ -60,9 +66,15 @@ volatile uint32_t currentStepSize[key_size] = {0};
 
 //Keyboard Connections
 bool westMost = false, eastMost = false, prevWestMost = false, prevEastMost = false, setUp = false;
+<<<<<<< HEAD
 bool dist;
 volatile uint8_t position = 1; 
 int uniqueID = 6;
+=======
+volatile uint8_t position = 1;
+volatile uint8_t numOfBoardsAdded = 0; 
+int uniqueID = 7;
+>>>>>>> 3d4cd86b265c2a79cdd2f3402710996b910b96ca
 
 //Knob values
 volatile uint8_t volume = 4;
@@ -247,13 +259,14 @@ void scanKeysTask(void * pvParameters) {
   const TickType_t xFrequency = 20/portTICK_PERIOD_MS;
   TickType_t xLastWakeTime = xTaskGetTickCount();
   std::bitset<4> cols;
-  std::bitset<32> inputs_local;
   uint32_t currentStepSize_local;
 
   for(;;){ 
     #ifndef TEST_SCANKEYS
       vTaskDelayUntil( &xLastWakeTime, xFrequency );
     #endif
+
+    std::bitset<32> inputs_local;
 
     for(int i=0;i<7;i++){
       setRow(i);
@@ -288,9 +301,8 @@ void scanKeysTask(void * pvParameters) {
     __atomic_store_n(&eastMost, eastMost_local, __ATOMIC_RELAXED);
     __atomic_store_n(&westMost, westMost_local, __ATOMIC_RELAXED);
 
-    if(!west) __atomic_store_n(&prevEastMost, true, __ATOMIC_RELAXED);
-    if(!east) __atomic_store_n(&prevWestMost, true, __ATOMIC_RELAXED);
-
+    if(!west) __atomic_store_n(&prevWestMost, true, __ATOMIC_RELAXED);
+    if(!east) __atomic_store_n(&prevEastMost, true, __ATOMIC_RELAXED);
     xSemaphoreTake(sysState.mutex, portMAX_DELAY);
     for(int i=0;i<4;i++){
       int currentStateA = inputs_local[(12 + (3-i)*2)];
@@ -302,7 +314,6 @@ void scanKeysTask(void * pvParameters) {
       int prevOctave = __atomic_load_n(&octave, __ATOMIC_RELAXED);
       if (prevOctave != sysState.octave.rotation) {
         uint8_t TX_Message[8] = {0};
-
         TX_Message[0] = int('O'); //for octave change
         TX_Message[1] = sysState.octave.rotation;
         xQueueSend(msgOutQ, TX_Message, portMAX_DELAY);
@@ -313,30 +324,9 @@ void scanKeysTask(void * pvParameters) {
       __atomic_store_n(&tremolo, sysState.tremolo.rotation, __ATOMIC_RELAXED);
       //__atomic_store_n(&local_dist, dist, __ATOMIC_RELAXED);
     }
-    xSemaphoreGive(sysState.mutex);
     
-    //Adding a new board request the previous most east or west octave and position
-    if(!setUp && eastMost_local && !westMost_local) {
-      uint8_t TX_Message[8] = {0};
+    
 
-      TX_Message[0] = int('E');
-      TX_Message[1] = int('?');
-
-      xQueueSend(msgOutQ, TX_Message, portMAX_DELAY);
-    }
-
-    if(!setUp && westMost_local && !eastMost_local) {
-      uint8_t TX_Message[8] = {0};
-
-      TX_Message[0] = int('W');
-      TX_Message[1] = int('?');
-
-      xQueueSend(msgOutQ, TX_Message, portMAX_DELAY);
-    }
-
-    if (westMost_local && eastMost_local) setUp = true;
-
-    xSemaphoreTake(sysState.mutex, portMAX_DELAY);
     for (int i = 0; i < 32; i++){
       if ( i < 12 ) {
         if (sysState.inputs[i] && !inputs_local[i]){
@@ -375,6 +365,26 @@ void scanKeysTask(void * pvParameters) {
       sysState.inputs[i] = inputs_local[i];
     }
     xSemaphoreGive(sysState.mutex);
+    //Adding a new board request the previous most east or west octave and position
+    if(!setUp && eastMost_local && !westMost_local) {
+      uint8_t TX_Message[8] = {0};
+
+      TX_Message[0] = int('E');
+      TX_Message[1] = int('?');
+
+      xQueueSend(msgOutQ, TX_Message, portMAX_DELAY);
+    }
+
+    if(!setUp && westMost_local && !eastMost_local) {
+      uint8_t TX_Message[8] = {0};
+
+      TX_Message[0] = int('W');
+      TX_Message[1] = int('?');
+
+      xQueueSend(msgOutQ, TX_Message, portMAX_DELAY);
+    }
+
+    if (westMost_local && eastMost_local) setUp = true;
     //__atomic_store_n(&currentStepSize, localCurrentStepSize, __ATOMIC_RELAXED);
     #ifdef TEST_SCANKEYS
     break;
@@ -392,51 +402,86 @@ void displayUpdateTask(void * pvParameters) {
   while (1) {
     #ifndef TEST_DISPLAYUPDATE
     vTaskDelayUntil( &xLastWakeTime, xFrequency );
+<<<<<<< HEAD
     #endif
 
       //Update display
+=======
+ 
+>>>>>>> 3d4cd86b265c2a79cdd2f3402710996b910b96ca
     u8g2.clearBuffer();         // clear the internal memory
     u8g2.setFont(u8g2_font_ncenB08_tr); // choose a suitable font
-      // Load shared variables atomically
     uint8_t local_volume = __atomic_load_n(&volume, __ATOMIC_ACQUIRE);
     uint8_t local_octave = __atomic_load_n(&octave, __ATOMIC_ACQUIRE);
     uint8_t local_waveform = __atomic_load_n(&waveform, __ATOMIC_ACQUIRE);
+<<<<<<< HEAD
     uint8_t local_tremolo = __atomic_load_n(&tremolo, __ATOMIC_ACQUIRE);
 
     // Display Volume
     // u8g2.setCursor(2, 10);
     // u8g2.print("Volume: ");
     // u8g2.print(local_volume);
+=======
+    
+    if (westMost){
+    // actual display values
+      int x_offset = 40; // Starting x position for notes
+      int y_offset = 10; // Y position for notes
+      u8g2.setCursor(2, 10);
+      u8g2.print("Keys: "); // Add the "Keys: " label
 
-    // Display Octave
-    u8g2.setCursor(2, 20);
-    u8g2.print("Octave: ");
-    u8g2.print(local_octave);
+      for (int i = 0; i < key_size; i++) {
+        if (currentStepSize[i] != 0) { // Check if the key is pressed
+          u8g2.drawStr(x_offset, y_offset, notes[i % 12].c_str()); // Display the note
+          x_offset += 15; // Move to the next position for the next note
+        }
+      }
+>>>>>>> 3d4cd86b265c2a79cdd2f3402710996b910b96ca
 
-    // Display Waveform
-    u8g2.setCursor(2, 30);
-    u8g2.print("Waveform: ");
-    switch (local_waveform) {
-      case 1:
-        u8g2.print("Sawtooth");
-        break;
-      case 2:
-        u8g2.print("Triangular");
-        break;
-      case 3:
-        u8g2.print("Square");
-        break;
-      case 4:
-        u8g2.print("Sine");
-        break;
-      default:
-        u8g2.print("Unknown");
-        break;
+      // Display Volume
+      u8g2.setCursor(70, 20);
+      u8g2.print("Vol: ");
+      u8g2.print(local_volume);
+
+      // Display Octave
+      u8g2.setCursor(2, 20);
+      u8g2.print("Octave: ");
+      u8g2.print(local_octave);
+
+      // Display Waveform
+      u8g2.setCursor(2, 30);
+      u8g2.print("Waveform: ");
+      switch (local_waveform) {
+        case 1:
+          u8g2.print("Sawtooth");
+          break;
+        case 2:
+          u8g2.print("Triangular");
+          break;
+        case 3:
+          u8g2.print("Square");
+          break;
+        case 4:
+          u8g2.print("Sine");
+          break;
+        default:
+          u8g2.print("Unknown");
+          break;
+      }
     }
+    else{
+       // Display Octave
+       u8g2.setCursor(2, 10);
+       u8g2.print("Octave: ");
+       u8g2.print(local_octave);
+    }
+<<<<<<< HEAD
     u8g2.setCursor(2,10);
     u8g2.print("Tremolo: ");
     u8g2.print(local_tremolo);
 
+=======
+>>>>>>> 3d4cd86b265c2a79cdd2f3402710996b910b96ca
     // // Display Notes Played
     // u8g2.setCursor(2, 40);
     // u8g2.print("Notes Played: ");
@@ -444,6 +489,7 @@ void displayUpdateTask(void * pvParameters) {
     // u8g2.print(sysState.inputs.to_ulong(), HEX);
     // xSemaphoreGive(sysState.mutex);
 
+    // // For testing
     // // Display RX Message (if applicable)
     // u8g2.setCursor(2, 50);
     // u8g2.print("RX: ");
@@ -479,16 +525,6 @@ void displayUpdateTask(void * pvParameters) {
     // xSemaphoreTake(sysState.mutex, portMAX_DELAY);
     // u8g2.print(sysState.inputs.to_ulong(),HEX);
 
-    // Serial.print(setUp);
-    // Serial.print(" ");
-    // Serial.print(eastMost);
-    // Serial.print(" ");
-    // Serial.print(westMost);
-    // Serial.print(" ");
-    // Serial.print(prevEastMost);
-    // Serial.print(" ");
-    // Serial.print(prevWestMost);
-    // Serial.println(" ");
     
     // xSemaphoreGive(sysState.mutex);
     u8g2.sendBuffer();          // transfer internal memory to the display
@@ -501,7 +537,7 @@ void displayUpdateTask(void * pvParameters) {
   }
 }
 
-void decodeTask (void * pvParameters) {
+void decodeTask(void * pvParameters) {
   uint32_t currentStepSize_local = 0;
   #ifdef TEST_DECODE
   uint8_t local_RX_Message[8] = {int('P'), 5, 2, 1, 0, 0, 0, 0};
@@ -517,7 +553,7 @@ void decodeTask (void * pvParameters) {
   bool eastMost_local;
   bool prevWestMost_local;
   bool prevEastMost_local;
-  bool setUp_local; 
+  bool setUp_local;
 
   int key_index;
   int octave_local;
@@ -526,16 +562,28 @@ void decodeTask (void * pvParameters) {
   while (1) {
     #ifndef TEST_DECODE
     xQueueReceive(msgInQ, local_RX_Message, portMAX_DELAY);
+
+    // Load the current state of the board
     westMost_local = __atomic_load_n(&westMost, __ATOMIC_RELAXED);
+<<<<<<< HEAD
     #endif
     if(local_RX_Message[0] == int('P') && westMost_local){
+=======
+    eastMost_local = __atomic_load_n(&eastMost, __ATOMIC_RELAXED);
+    prevWestMost_local = __atomic_load_n(&prevWestMost, __ATOMIC_RELAXED);
+    prevEastMost_local = __atomic_load_n(&prevEastMost, __ATOMIC_RELAXED);
+    setUp_local = __atomic_load_n(&setUp, __ATOMIC_RELAXED);
+
+    // Handle key press/release messages
+    if (local_RX_Message[0] == int('P') && westMost_local) {
+>>>>>>> 3d4cd86b265c2a79cdd2f3402710996b910b96ca
       octave_local = local_RX_Message[1];
       key_index = local_RX_Message[2];
       position_local = local_RX_Message[3];
       int currentStepSize_local = setOctave(key_index, octave_local);
 
       __atomic_store_n(&currentStepSize[key_index * position], currentStepSize_local, __ATOMIC_RELAXED);
-    } 
+    }
 
     if (local_RX_Message[0] == int('R') && westMost_local) {
       currentStepSize_local = 0;
@@ -545,6 +593,7 @@ void decodeTask (void * pvParameters) {
       __atomic_store_n(&currentStepSize[key_index * position], currentStepSize_local, __ATOMIC_RELAXED);
     }
 
+<<<<<<< HEAD
 
 
     if (local_RX_Message[1] == int('?')){
@@ -567,57 +616,77 @@ void decodeTask (void * pvParameters) {
         xQueueSend(msgOutQ, TX_Message, portMAX_DELAY);
       }
 
+=======
+    // Handle board setup messages
+    if (local_RX_Message[1] == int('?')) {
+      if (local_RX_Message[0] == int('W')){
+        __atomic_store_n(&position, position + 1, __ATOMIC_RELAXED);
+        if (prevWestMost_local && setUp_local) {
+          uint8_t TX_Message[8] = {0};
+          uint8_t position_local = __atomic_load_n(&position, __ATOMIC_RELAXED);
+          uint8_t octave_local = __atomic_load_n(&octave, __ATOMIC_RELAXED);
+          TX_Message[0] = int('W');
+          TX_Message[1] = int('!');
+          TX_Message[2] = octave_local;
+          TX_Message[3] = position_local;
+          __atomic_store_n(&prevWestMost, false, __ATOMIC_RELAXED);
+          xQueueSend(msgOutQ, TX_Message, portMAX_DELAY);
+        }
+      } 
+>>>>>>> 3d4cd86b265c2a79cdd2f3402710996b910b96ca
       else if (local_RX_Message[0] == int('E') && prevEastMost_local && setUp_local) {
         uint8_t TX_Message[8] = {0};
-
         TX_Message[0] = int('E');
         TX_Message[1] = int('!');
         TX_Message[2] = __atomic_load_n(&octave, __ATOMIC_RELAXED);
         TX_Message[3] = __atomic_load_n(&position, __ATOMIC_RELAXED);
-        __atomic_store_n(&prevEastMost, false ,__ATOMIC_RELAXED);
+        __atomic_store_n(&prevEastMost, false, __ATOMIC_RELAXED);
         xQueueSend(msgOutQ, TX_Message, portMAX_DELAY);
       }
     }
-    
-    if (local_RX_Message[1] == int('!')){
-      westMost_local = __atomic_load_n(&westMost, __ATOMIC_RELAXED);
-      eastMost_local = __atomic_load_n(&eastMost, __ATOMIC_RELAXED);
-      prevWestMost_local = __atomic_load_n(&prevWestMost, __ATOMIC_RELAXED);
-      prevEastMost_local = __atomic_load_n(&prevEastMost, __ATOMIC_RELAXED);
-      setUp_local = __atomic_load_n(&setUp, __ATOMIC_RELAXED);
 
+    // Handle board position and octave updates
+    if (local_RX_Message[1] == int('!')) {
       int receivedOctave = local_RX_Message[2];
       int receivedPosition = local_RX_Message[3];
 
       if (local_RX_Message[0] == int('E') && !setUp_local && eastMost_local && !westMost_local) {
+        // New board added to the east
         __atomic_store_n(&octave, receivedOctave + 1, __ATOMIC_RELAXED);
         __atomic_store_n(&position, receivedPosition + 1, __ATOMIC_RELAXED);
-        __atomic_store_n(&prevWestMost, false ,__ATOMIC_RELAXED);
+        __atomic_store_n(&prevWestMost, false, __ATOMIC_RELAXED);
         __atomic_store_n(&setUp, true, __ATOMIC_RELAXED);
-      }
-
-      else if (local_RX_Message [0] == int('W') && !setUp_local && westMost_local && !eastMost_local) {
+      } 
+      
+      else if (local_RX_Message[0] == int('W') && !setUp_local && westMost_local && !eastMost_local) {
+        // New board added to the west
         __atomic_store_n(&octave, receivedOctave - 1, __ATOMIC_RELAXED);
         __atomic_store_n(&position, 1, __ATOMIC_RELAXED);
-        __atomic_store_n(&prevEastMost, false ,__ATOMIC_RELAXED);
+        __atomic_store_n(&prevEastMost, false, __ATOMIC_RELAXED);
         __atomic_store_n(&setUp, true, __ATOMIC_RELAXED);
       }
     }
 
+    // Handle octave change messages
     if (local_RX_Message[0] == int('O') && !westMost_local && setUp) {
       uint8_t newOctave = local_RX_Message[1];
       __atomic_store_n(&octave, newOctave + position - 1, __ATOMIC_RELAXED);
     }
 
-
+    // Update the RX message buffer
     for (int i = 0; i < 8; i++) {
       __atomic_store_n(&RX_Message[i], local_RX_Message[i], __ATOMIC_RELAXED);
     }
+<<<<<<< HEAD
     #ifdef TEST_DECODE
     break;
     #endif
   }  
+=======
+  }
+>>>>>>> 3d4cd86b265c2a79cdd2f3402710996b910b96ca
 }
+
  
 void CAN_TX_Task (void * pvParameters) {
 	uint8_t msgOut[8];
@@ -642,6 +711,7 @@ void CAN_TX_ISR (void) {
 
 void setup() {
   // put your setup code here, to run once:
+<<<<<<< HEAD
   #ifdef TEST_DECODE
   msgInQ = xQueueCreate(384,8);
   #endif
@@ -661,6 +731,9 @@ void setup() {
   #ifdef TEST_CAN_TX
   CAN_TX_Semaphore = xSemaphoreCreateCounting(50,50);
   #endif
+=======
+  
+>>>>>>> 3d4cd86b265c2a79cdd2f3402710996b910b96ca
 
   //Set pin directions
   pinMode(RA0_PIN, OUTPUT);
@@ -695,14 +768,18 @@ void setup() {
   //Initialise UART
   Serial.begin(9600);
   delay(2000);
-  Serial.println("Hello World");
+
+  CAN_TX_Semaphore = xSemaphoreCreateCounting(3,3);
+
+  msgInQ = xQueueCreate(36,8);
+  msgOutQ = xQueueCreate(36,8); //12 runs of the task
 
   #ifndef DISABLE_ISR
   CAN_Init(false);
   CAN_RegisterRX_ISR(CAN_RX_ISR);
   CAN_RegisterTX_ISR(CAN_TX_ISR);
   // setCANFilter(0x123,0x7ff);
-  setCANFilter(6,0);
+  setCANFilter(7,0);
   CAN_Start();
   #endif
   
@@ -715,7 +792,7 @@ void setup() {
   "scanKeys",		/* Text name for the task */
   256,      		/* Stack size in words, not bytes */
   NULL,			/* Parameter passed into the task */
-  1,			/* Task priority */
+  3,			/* Task priority */
   &scanKeysHandle);	/* Pointer to store the task handle */
 
   TaskHandle_t displayUpdateHandle = NULL;
@@ -733,7 +810,7 @@ void setup() {
   "decode",		/* Text name for the task */
   256,      		/* Stack size in words, not bytes */
   NULL,			/* Parameter passed into the task */
-  1,			/* Task priority */
+  10,			/* Task priority */
   &decodeHandle);	/* Pointer to store the task handle */
   
   TaskHandle_t CAN_TX_Handle = NULL;
@@ -742,7 +819,7 @@ void setup() {
   "CAN_TX",		/* Text name for the task */
   256,      		/* Stack size in words, not bytes */
   NULL,			/* Parameter passed into the task */
-  1,			/* Task priority */
+  9,			/* Task priority */
   &CAN_TX_Handle);	/* Pointer to store the task handle */
 
   vTaskStartScheduler();
