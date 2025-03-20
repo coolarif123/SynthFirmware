@@ -32,7 +32,6 @@ To further expand upon the base functionality of the synth, the following advanc
 * Output waveform selection
 * Polyphony
 * CAN Bus Automatic Detection
-* Distortion effect
 
 ### LFO
 
