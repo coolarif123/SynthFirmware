@@ -3,11 +3,17 @@
 #include <bitset>
 #include <STM32FreeRTOS.h>
 #include <algorithm>
+#include <stdio.h>
+#include <stdint.h>
 #include <ES_CAN.h>
 #include "Knob.h"
-#define DISABLE_THREADS  
-#define DISABLE_ISR      
-#define TEST_SCANKEYS
+//#define DISABLE_THREADS  
+//#define DISABLE_ISR      
+//#define TEST_SCANKEYS
+//#define TEST_DISPLAYUPDATE
+//#define TEST_DECODE
+//#define TEST_CAN_TX
+
 
 
 //Constants
@@ -54,6 +60,7 @@ volatile uint32_t currentStepSize[key_size] = {0};
 
 //Keyboard Connections
 bool westMost = false, eastMost = false, prevWestMost = false, prevEastMost = false, setUp = false;
+bool dist;
 volatile uint8_t position = 1; 
 int uniqueID = 6;
 
@@ -61,6 +68,7 @@ int uniqueID = 6;
 volatile uint8_t volume = 4;
 volatile uint8_t octave = 4;
 volatile uint8_t waveform = 0;
+volatile uint8_t tremolo = 0;
 
 //waveforms
 const unsigned char sinetable[128] = {
@@ -88,7 +96,7 @@ SemaphoreHandle_t CAN_TX_Semaphore;
 //Global system state struct
 struct {
   std::bitset<32> inputs;
-  Knob knob0{0, 8, 8, 0};
+  Knob tremolo{0, 0, 8, 0};
   Knob volume{1, 1, 8, 1};
   Knob octave{2, 1, 7, 4};
   Knob waveform{3, 1, 4, 1};
@@ -97,7 +105,17 @@ struct {
 
 uint8_t RX_Message[8];
 
-Knob* knobs[] = {&sysState.knob0, &sysState.waveform, &sysState.octave, &sysState.volume};
+Knob* knobs[] = {&sysState.tremolo, &sysState.waveform, &sysState.octave, &sysState.volume};
+
+int softClip(int32_t sample, float threshold){
+  float x = (float)sample/threshold;
+
+  if (x > 1.0f) return threshold;  // Hard limit at threshold
+  if (x < -1.0f) return -threshold;  // Hard limit at -threshold
+
+  // Soft clipping function (smooth curve)
+  return (int)(threshold * ((3.0f * x / 2.0f) - (x * x * x / 2.0f)));
+}
 
 //Function to set outputs using key matrix
 void setOutMuxBit(const uint8_t bitIdx, const bool value) {
@@ -144,10 +162,14 @@ int setOctave(int idx, int octave){
 
 void setISR(){
   static uint32_t phaseAcc[key_size] = {0};
+  static uint32_t tremoloPhase = 0;
   int32_t Vout = 0;
   int k3r = __atomic_load_n(&volume, __ATOMIC_ACQUIRE); //volume
   int k2r = __atomic_load_n(&octave, __ATOMIC_ACQUIRE); //octave
   int k1r = __atomic_load_n(&waveform, __ATOMIC_ACQUIRE); //waveform
+  int k0r = __atomic_load_n(&tremolo, __ATOMIC_ACQUIRE); //trem
+  //bool dist = __atomic_load_n(&dist, __ATOMIC_ACQUIRE); //distortion
+  // Serial.println(dist);
   
   for (int i = 0; i < key_size; i++) {
     if (currentStepSize[i] != 0) {
@@ -186,6 +208,25 @@ void setISR(){
       }
     }
   }
+  // if(dist){
+  //   float distortion_threshold = 20.0f;
+  //   Vout = softClip(Vout, distortion_threshold);
+  // }
+
+  if(k0r > 0){
+    tremoloPhase += (k0r * 20000);
+    int tremoloIndex = (tremoloPhase >> 24) & 127 ;
+    if((tremoloPhase >> 24) >= 128){
+      Vout += (((255 - (tremoloPhase >> 24))* 2) - 127);
+    }
+    else {
+      Vout += ((tremoloPhase >> 23)-128);
+    }
+    int tremoloValue = sinetable[tremoloIndex];
+    float modDepth = (k0r / 10.0f) * 1.0f;
+    Vout = Vout * ((1.0f - modDepth) + (modDepth * tremoloValue/128.0f));
+  }
+
   //adjust the volume
   Vout = Vout >> (8 - k3r);
   Vout = std::max(std::min((int)Vout, 127), -128);
@@ -200,7 +241,6 @@ void CAN_RX_ISR (void) {
 	CAN_RX(ID, RX_Message_ISR);
 	xQueueSendFromISR(msgInQ, RX_Message_ISR, NULL);
 }
-
 
 void scanKeysTask(void * pvParameters) {
   
@@ -240,6 +280,7 @@ void scanKeysTask(void * pvParameters) {
 
     bool west = !inputs_local[23];
     bool east = !inputs_local[27];
+    //bool local_dist = !inputs_local[24];
 
     bool westMost_local = !west;
     bool eastMost_local = !east;
@@ -269,6 +310,8 @@ void scanKeysTask(void * pvParameters) {
       __atomic_store_n(&volume, sysState.volume.rotation, __ATOMIC_RELAXED);
       __atomic_store_n(&octave, sysState.octave.rotation, __ATOMIC_RELAXED);
       __atomic_store_n(&waveform, sysState.waveform.rotation, __ATOMIC_RELAXED);
+      __atomic_store_n(&tremolo, sysState.tremolo.rotation, __ATOMIC_RELAXED);
+      //__atomic_store_n(&local_dist, dist, __ATOMIC_RELAXED);
     }
     xSemaphoreGive(sysState.mutex);
     
@@ -347,7 +390,9 @@ void displayUpdateTask(void * pvParameters) {
   
 
   while (1) {
+    #ifndef TEST_DISPLAYUPDATE
     vTaskDelayUntil( &xLastWakeTime, xFrequency );
+    #endif
 
       //Update display
     u8g2.clearBuffer();         // clear the internal memory
@@ -356,11 +401,12 @@ void displayUpdateTask(void * pvParameters) {
     uint8_t local_volume = __atomic_load_n(&volume, __ATOMIC_ACQUIRE);
     uint8_t local_octave = __atomic_load_n(&octave, __ATOMIC_ACQUIRE);
     uint8_t local_waveform = __atomic_load_n(&waveform, __ATOMIC_ACQUIRE);
+    uint8_t local_tremolo = __atomic_load_n(&tremolo, __ATOMIC_ACQUIRE);
 
     // Display Volume
-    u8g2.setCursor(2, 10);
-    u8g2.print("Volume: ");
-    u8g2.print(local_volume);
+    // u8g2.setCursor(2, 10);
+    // u8g2.print("Volume: ");
+    // u8g2.print(local_volume);
 
     // Display Octave
     u8g2.setCursor(2, 20);
@@ -387,6 +433,9 @@ void displayUpdateTask(void * pvParameters) {
         u8g2.print("Unknown");
         break;
     }
+    u8g2.setCursor(2,10);
+    u8g2.print("Tremolo: ");
+    u8g2.print(local_tremolo);
 
     // // Display Notes Played
     // u8g2.setCursor(2, 40);
@@ -446,13 +495,25 @@ void displayUpdateTask(void * pvParameters) {
 
     //Toggle LED
     digitalToggle(LED_BUILTIN);
+    #ifdef TEST_DISPLAYUPDATE
+    break;
+    #endif
   }
 }
 
 void decodeTask (void * pvParameters) {
   uint32_t currentStepSize_local = 0;
+  #ifdef TEST_DECODE
+  uint8_t local_RX_Message[8] = {int('P'), 5, 2, 1, 0, 0, 0, 0};
+  #endif
+  #ifndef TEST_DECODE
   uint8_t local_RX_Message[8] = {0};
+  #endif
+  //edit these
   bool westMost_local;
+  #ifdef TEST_DECODE
+  westMost_local = 1;
+  #endif
   bool eastMost_local;
   bool prevWestMost_local;
   bool prevEastMost_local;
@@ -463,8 +524,10 @@ void decodeTask (void * pvParameters) {
   int position_local;
 
   while (1) {
+    #ifndef TEST_DECODE
     xQueueReceive(msgInQ, local_RX_Message, portMAX_DELAY);
     westMost_local = __atomic_load_n(&westMost, __ATOMIC_RELAXED);
+    #endif
     if(local_RX_Message[0] == int('P') && westMost_local){
       octave_local = local_RX_Message[1];
       key_index = local_RX_Message[2];
@@ -481,6 +544,8 @@ void decodeTask (void * pvParameters) {
 
       __atomic_store_n(&currentStepSize[key_index * position], currentStepSize_local, __ATOMIC_RELAXED);
     }
+
+
 
     if (local_RX_Message[1] == int('?')){
       westMost_local = __atomic_load_n(&westMost, __ATOMIC_RELAXED);
@@ -548,15 +613,26 @@ void decodeTask (void * pvParameters) {
     for (int i = 0; i < 8; i++) {
       __atomic_store_n(&RX_Message[i], local_RX_Message[i], __ATOMIC_RELAXED);
     }
+    #ifdef TEST_DECODE
+    break;
+    #endif
   }  
 }
  
 void CAN_TX_Task (void * pvParameters) {
 	uint8_t msgOut[8];
 	while (1) {
-		xQueueReceive(msgOutQ, msgOut, portMAX_DELAY);
-		xSemaphoreTake(CAN_TX_Semaphore, portMAX_DELAY);
-		CAN_TX(uniqueID, msgOut);
+		#ifndef TEST_CAN_TX
+    xQueueReceive(msgOutQ, msgOut, portMAX_DELAY);
+		#endif
+    #ifdef TEST_CAN_TX
+    uint8_t msgOut[8] = {int('P'), 5, 2, 1, 0, 0, 0, 0};
+    #endif
+    xSemaphoreTake(CAN_TX_Semaphore, portMAX_DELAY);
+    CAN_TX(uniqueID, msgOut); //need another board ig
+    #ifdef TEST_CAN_TX
+    break;
+    #endif
 	}
 }
 
@@ -566,9 +642,25 @@ void CAN_TX_ISR (void) {
 
 void setup() {
   // put your setup code here, to run once:
-  msgInQ = xQueueCreate(36,8);
+  #ifdef TEST_DECODE
+  msgInQ = xQueueCreate(384,8);
+  #endif
+  #ifdef TEST_SCANKEYS
   msgOutQ = xQueueCreate(384,8); //12 runs of the task
+  #endif
+  #ifndef TEST_DECODE
+  msgInQ = xQueueCreate(12,8);
+  #endif
+  #ifndef TEST_SCANKEYS
+  msgOutQ = xQueueCreate(12,8); 
+  #endif
+
+  #ifndef TEST_CAN_TX
   CAN_TX_Semaphore = xSemaphoreCreateCounting(3,3);
+  #endif
+  #ifdef TEST_CAN_TX
+  CAN_TX_Semaphore = xSemaphoreCreateCounting(50,50);
+  #endif
 
   //Set pin directions
   pinMode(RA0_PIN, OUTPUT);
@@ -652,14 +744,41 @@ void setup() {
   NULL,			/* Parameter passed into the task */
   1,			/* Task priority */
   &CAN_TX_Handle);	/* Pointer to store the task handle */
+
   vTaskStartScheduler();
   #endif // Disable threads
 
   #ifdef TEST_SCANKEYS
 	uint32_t startTime = micros();
-  Serial.println(startTime);
 	for (int iter = 0; iter < 32; iter++) {
 		scanKeysTask(NULL);
+	}
+	Serial.println(micros()-startTime);
+	while(1);
+  #endif
+
+  #ifdef TEST_DISPLAYUPDATE
+	uint32_t startTime = micros();
+	for (int iter = 0; iter < 32; iter++) {
+		displayUpdateTask(NULL);
+	}
+	Serial.println(micros()-startTime);
+	while(1);
+  #endif
+
+  #ifdef TEST_DECODE
+	uint32_t startTime = micros();
+	for (int iter = 0; iter < 32; iter++) {
+		decodeTask(NULL);
+	}
+	Serial.println(micros()-startTime);
+	while(1);
+  #endif
+
+  #ifdef TEST_CAN_TX
+	uint32_t startTime = micros();
+	for (int iter = 0; iter < 32; iter++) {
+		CAN_TX_Task(NULL);
 	}
 	Serial.println(micros()-startTime);
 	while(1);
