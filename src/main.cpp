@@ -4,8 +4,11 @@
 #include <STM32FreeRTOS.h>
 #include <algorithm>
 #include <ES_CAN.h>
-
 #include "Knob.h"
+#define DISABLE_THREADS  
+#define DISABLE_ISR      
+#define TEST_SCANKEYS
+
 
 
 //Constants
@@ -209,13 +212,29 @@ void scanKeysTask(void * pvParameters) {
   uint32_t currentStepSize_local;
 
   for(;;){ 
-    vTaskDelayUntil( &xLastWakeTime, xFrequency );
+    #ifndef TEST_SCANKEYS
+      vTaskDelayUntil( &xLastWakeTime, xFrequency );
+    #endif
 
     for(int i=0;i<7;i++){
       setRow(i);
       delayMicroseconds(3);
       cols = readCols();
-      for (int j = 0; j < 4; j++) inputs_local[4*i + j] = cols[j];
+      for (int j = 0; j < 4; j++){ 
+
+        #ifdef TEST_SCANKEYS  
+        if(i<3){
+          inputs_local[4*i + j] = 1; //Set all keys to being pressed for worst case scenario
+        }
+        else{ 
+          inputs_local[4*i + j] = cols[j];
+        }
+        #endif
+        #ifndef TEST_SCANKEYS
+        inputs_local[4*i + j] = cols[j];
+        #endif
+      }
+        
     }
     
     uint8_t octave_local = __atomic_load_n(&octave, __ATOMIC_ACQUIRE);
@@ -315,6 +334,9 @@ void scanKeysTask(void * pvParameters) {
     }
     xSemaphoreGive(sysState.mutex);
     //__atomic_store_n(&currentStepSize, localCurrentStepSize, __ATOMIC_RELAXED);
+    #ifdef TEST_SCANKEYS
+    break;
+    #endif
   }  
 }
 
@@ -559,9 +581,8 @@ void CAN_TX_ISR (void) {
 void setup() {
   // put your setup code here, to run once:
   msgInQ = xQueueCreate(36,8);
-  msgOutQ = xQueueCreate(36,8);
+  msgOutQ = xQueueCreate(384,8); //12 runs of the task
   CAN_TX_Semaphore = xSemaphoreCreateCounting(3,3);
-
 
   //Set pin directions
   pinMode(RA0_PIN, OUTPUT);
@@ -587,25 +608,30 @@ void setup() {
   u8g2.begin();
   setOutMuxBit(DEN_BIT, HIGH);  //Enable display power supply
 
+  #ifndef DISABLE_ISR
   sampleTimer.setOverflow(22000, HERTZ_FORMAT);
   sampleTimer.attachInterrupt(setISR);
   sampleTimer.resume();
+  #endif
 
   //Initialise UART
   Serial.begin(9600);
   delay(2000);
   Serial.println("Hello World");
 
+  #ifndef DISABLE_ISR
   CAN_Init(false);
   CAN_RegisterRX_ISR(CAN_RX_ISR);
   CAN_RegisterTX_ISR(CAN_TX_ISR);
   // setCANFilter(0x123,0x7ff);
   setCANFilter(6,0);
   CAN_Start();
-
+  #endif
+  
   sysState.mutex = xSemaphoreCreateMutex();
   TaskHandle_t scanKeysHandle = NULL;
 
+  #ifndef DISABLE_THREADS
   xTaskCreate(
   scanKeysTask,		/* Function that implements the task */
   "scanKeys",		/* Text name for the task */
@@ -640,8 +666,18 @@ void setup() {
   NULL,			/* Parameter passed into the task */
   2,			/* Task priority */
   &CAN_TX_Handle);	/* Pointer to store the task handle */
-
   vTaskStartScheduler();
+  #endif // Disable threads
+
+  #ifdef TEST_SCANKEYS
+	uint32_t startTime = micros();
+  Serial.println(startTime);
+	for (int iter = 0; iter < 32; iter++) {
+		scanKeysTask(NULL);
+	}
+	Serial.println(micros()-startTime);
+	while(1);
+  #endif
 }
 
 void loop() {
