@@ -58,6 +58,7 @@ The waveform selector is programmed to the unused 3th dial as it was felt that i
 * Sine wave
 * Square wave
 * Triangle wave
+
 Similarly to the LFO, the generic knob class simplified the implementation of this feature. The encoding of the knob scrolling and passing to global system variables was handled identically to the above case. In order to control the shape of the output waveform, however, the waveform value which is stored in the knob global is used to change the summation into the phase accumulator giving each individual output. Whenever values were updated in the scanKeysTask() memory access and stores were done using atomic memory access operations to ensure thread saftey.
 
 ### Polyphony
