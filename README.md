@@ -1,15 +1,11 @@
-<<<<<<< HEAD
-# Embedded Systems Coursework 2 - Synthesizer Firmware 
-=======
 # Embedded Systems Synthesiser Coursework Report
->>>>>>> 0e2c896b20905559c88f5122479594b4f5172ab5
 
 Sandro, Sophie and, Arif
 
 The goal of this coursework was to create software to control a music synthesiser which can interface with other synthesisers and to add further functionality to the synths. Below we will outline how this was achieved.
 ## **1. Basic Functionality**
 All of the fundamental features specified in the github lab guide were implemented in to the system. These include:
-* Ability to synthesis notes with a sawtooth waveform
+* Ability to shsynthesis notes with a sawtooth waveform
 * Multiple board CAN bus interfacing
 * Keyboard setting controls (Volume, Octave)
 * Display that shows control settings
@@ -59,16 +55,16 @@ Polyphony describes the boards ability to play multiple notes at once. It is con
 #### Implementation
 Our SetISR() was changed so that there were enough phase accumulators dynamically created to allow for an accumulator per note. This allows us to play as many notes as we would like at one time. Each key writes a single bit to the inputs bitset which tracks the state of each key in the matrix and outputs the appropriate notes. During the main interupt loop, the accumulator contents are summed together and a voltage sum is produced which represents the combination of all key presses which is then passed to the DAC and then the speaker.
 
-### CAN Auto Detection
+### CAN Auto Detection For More Than 3 Boards
 #### Description
-CAN Auto Detection is the ability for the boards to automatically detect when they are connected to each other, communicate with each other sending and receiving keypress, waveform, and octave messages and, to scale their octaves according to their position relative the main board. 
+CAN Auto Detection is the ability for the boards to automatically detect when they are connected to each other, communicate with each other sending and receiving keypress, waveform, and octave messages and, to scale their octaves according to their position relative the main board. This has been done by assigning the left most keyboard as the receiver and all of the other keyboards as the transmitters.
 
 #### Implementation
-CAN Auto Detection works based on a polling approach where boards constantly poll listening for messages over their CAN bus. Upon the main board completing any action such as pressing a key or rotating a dial its action is added to its own message recieve queue, and whenever another board is used the information from that action is then immediately broadcasted to the network where the leader can listen to the message and take appropriate action. 
+CAN Auto Detection works based on a polling approach where boards constantly poll listening for messages over their CAN bus. Upon the main board completing any action such as pressing a key or rotating a dial its action is added to its own message receive queue, and whenever another board is used the information from that action is then immediately broadcasted to the network where the leader can listen to the message and take appropriate action. 
 
 Each board also stores information about its position relative to the main board which can be used to set the correct octave output which cuts down on the need for excessive additional processing to achieve this goal which helps to speed up the process.
 
-The boards establish leadership status through their handshaking procedure which is initiated whenever they detect a new connection on their busses. This allows them to establish the order of all of the boards, and a main leader to adjust settings on.
+The boards establish leadership status through their handshaking procedure which is initiated whenever they detect a new connection on their busses. This allows them to establish the order of all of the boards, and a receiver to adjust settings on.
 
 ## Timing Analysis
  **Tasks & Interrupts**:
